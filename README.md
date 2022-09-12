@@ -1,7 +1,7 @@
 # TackAid
 
 ## Live Demo
-[TackAid Dapp](https://dacadeorg.github.io/celo-marketplace-dapp/)
+[TackAid Dapp](https://classy-meerkat-8e3baf.netlify.app/)
 
 
 
