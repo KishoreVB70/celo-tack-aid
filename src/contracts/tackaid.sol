@@ -3,21 +3,34 @@
 pragma solidity >=0.7.0 <0.9.0;
 
 interface IERC20Token {
-  function transfer(address, uint256) external returns (bool);
-  function approve(address, uint256) external returns (bool);
-  function transferFrom(address, address, uint256) external returns (bool);
-  function totalSupply() external view returns (uint256);
-  function balanceOf(address) external view returns (uint256);
-  function allowance(address, address) external view returns (uint256);
-  event Transfer(address indexed from, address indexed to, uint256 value);
-  event Approval(address indexed owner, address indexed spender, uint256 value);
+    function transfer(address, uint256) external returns (bool);
+
+    function approve(address, uint256) external returns (bool);
+
+    function transferFrom(
+        address,
+        address,
+        uint256
+    ) external returns (bool);
+
+    function totalSupply() external view returns (uint256);
+
+    function balanceOf(address) external view returns (uint256);
+
+    function allowance(address, address) external view returns (uint256);
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(
+        address indexed owner,
+        address indexed spender,
+        uint256 value
+    );
 }
 
 contract TechGadget {
-
-
-    uint internal gadgetsLength = 0;
-    address internal cUsdTokenAddress = 0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1;
+    uint private gadgetsLength = 0;
+    address private cUsdTokenAddress =
+        0x874069Fa1Eb16D44d622F2e0Ca25eeA172369bC1;
 
     struct Gadget {
         address payable owner;
@@ -28,16 +41,35 @@ contract TechGadget {
         uint sold;
     }
 
-    mapping (uint => Gadget) internal gadgets;
+    mapping(uint => Gadget) private gadgets;
 
+    modifier checkIfGadgetOwner(uint _index) {
+        require(msg.sender == gadgets[_index].owner, "Unauthorized caller");
+        _;
+    }
 
-// add a new gadget
+    modifier checkIfValidPrice(uint _price) {
+        require(_price > 0, "invalid price");
+        _;
+    }
+    modifier checkIfValidAmount(uint _amount) {
+        require(_amount > 0, "invalid amount");
+        _;
+    }
+
+    /**
+     * @dev allow users to add a gadget to sell
+     * @notice  values entered needs to be valid
+     * @param _noOfAvailable the number of gadgets available for sale
+     */
     function addGadget(
-        string memory _image,
-        string memory _description, 
+        string calldata _image,
+        string calldata _description,
         uint _price,
         uint _noOfAvailable
-    ) public {
+    ) public checkIfValidPrice(_price) checkIfValidAmount(_noOfAvailable) {
+        require(bytes(_image).length > 0, "Empty image");
+        require(bytes(_description).length > 0, "Empty description");
         uint _sold = 0;
         gadgets[gadgetsLength] = Gadget(
             payable(msg.sender),
@@ -50,46 +82,75 @@ contract TechGadget {
         gadgetsLength++;
     }
 
-      // unlisting a gadget  from the marketplace
-        function unlistGadget(uint _index) external {
-	        require(msg.sender == gadgets[_index].owner, "can't delete picture");         
-            gadgets[_index] = gadgets[gadgetsLength - 1];
-            delete gadgets[gadgetsLength - 1];
-            gadgetsLength--; 
-	 }
-
-
-// add more inventory
-    function addCatalogue(uint _index, uint _ammount) external{
-        require(msg.sender == gadgets[_index].owner, "only owner can perform transaction");
-        require(_ammount != 0 , "only owner can perform transaction");
-        gadgets[_index].noOfAvailable = gadgets[_index].noOfAvailable + _ammount;
+    /**
+     * @dev allow gadgets' owners to unlist their gadgets. Cleanup of gagdet's data occurs
+     * @notice This will remove the gadget from the platform
+     */
+    function unlistGadget(uint _index) public checkIfGadgetOwner(_index) {
+        uint newGadgetsLength = gadgetsLength - 1;
+        gadgets[_index] = gadgets[newGadgetsLength];
+        delete gadgets[newGadgetsLength];
+        gadgetsLength = newGadgetsLength;
     }
 
-// reduce inventory
-    function reduceCatalogue(uint _index, uint _ammount) external{
-        require(msg.sender == gadgets[_index].owner, "only owner can perform transaction");
-        require(_ammount < gadgets[_index].noOfAvailable, "only owner can perform transaction");
-        gadgets[_index].noOfAvailable = gadgets[_index].noOfAvailable - _ammount;
+    /**
+     * @dev allow gadgets' owners to increase their inventory of a gadget(noOfAvailable)
+     * @param _amount the number to add with the current inventory
+     *
+     */
+    function addInventory(uint _index, uint _amount)
+        public
+        checkIfGadgetOwner(_index)
+        checkIfValidAmount(_amount)
+    {
+        Gadget storage currentGadget = gadgets[_index];
+        uint newNoOfAvailable = currentGadget.noOfAvailable + _amount;
+        currentGadget.noOfAvailable = newNoOfAvailable;
     }
 
-    // change gadget price
-    function modifyPrice(uint _index, uint _newPrice) external{
-        require(msg.sender == gadgets[_index].owner, "only owner can perform transaction");
-        require(_newPrice != 0, "invalid price");
+        /**
+     * @dev allow gadgets' owners to reduce their inventory of a gadget(noOfAvailable)
+     * @notice Amount to deduct from the current inventory needs to be less or equal to the current inventory
+     * @param _amount the number to deduct from the current inventory
+     */
+    function reduceInventory(uint _index, uint _amount)
+        external
+        checkIfGadgetOwner(_index)
+    {
+        Gadget storage currentGadget = gadgets[_index];
+        require(
+            _amount <= currentGadget.noOfAvailable,
+            "amount can only be less or equal to the number of gadgets available"
+        );
+        uint newNoOfAvailable = currentGadget.noOfAvailable - _amount;
+        currentGadget.noOfAvailable = newNoOfAvailable;
+    }
+
+    /**
+     * @dev allow gadgets' owners to change the price of their gadgets
+     * @notice newPrice needs to be greater than zero
+     */
+    function modifyPrice(uint _index, uint _newPrice)
+        external
+        checkIfGadgetOwner(_index)
+        checkIfValidPrice(_newPrice)
+    {
         gadgets[_index].price = _newPrice;
     }
-    
 
-// getting gadget
-    function getGadget(uint _index) public view returns (
-        address payable, 
-        string memory, 
-        string memory, 
-        uint, 
-        uint,
-        uint
-    ) {
+    // getting gadget
+    function getGadget(uint _index)
+        public
+        view
+        returns (
+            address payable,
+            string memory,
+            string memory,
+            uint,
+            uint,
+            uint
+        )
+    {
         return (
             gadgets[_index].owner,
             gadgets[_index].image,
@@ -97,27 +158,32 @@ contract TechGadget {
             gadgets[_index].price,
             gadgets[_index].noOfAvailable,
             gadgets[_index].sold
-          
         );
     }
 
-
-    //buying a gadget
-    function buyGadget(uint _index) public payable  {
-        require(gadgets[_index].noOfAvailable > 0, "Sold out");
+    /**
+     * @dev allow users to buy a gadget from the platform
+     * @notice Reverts if gadget is out of inventory(out of stock)
+     */
+    function buyGadget(uint _index) public payable {
+        Gadget storage currentGadget = gadgets[_index];
+        require(currentGadget.noOfAvailable > 0, "Sold out");
         require(
-          IERC20Token(cUsdTokenAddress).transferFrom(
-            msg.sender,
-            gadgets[_index].owner,
-            gadgets[_index].price
-          ),
-          "Transfer failed."
+            currentGadget.owner != msg.sender,
+            "You can't buy your own gadgets"
         );
-        gadgets[_index].sold++;
-        gadgets[_index].noOfAvailable--;
+        currentGadget.sold++;
+        currentGadget.noOfAvailable--;
+        require(
+            IERC20Token(cUsdTokenAddress).transferFrom(
+                msg.sender,
+                currentGadget.owner,
+                currentGadget.price
+            ),
+            "Transfer failed."
+        );
     }
 
-    
     // to get the length of gadgets in the mapping
     function getGadgetsLength() public view returns (uint) {
         return (gadgetsLength);

@@ -12,7 +12,7 @@ export const Gadgets = (props) => {
   return <div className="card-container">
    
    {props.gadgets.map((gadget) => (
-      <div class="card">
+      <div class="card" key={gadget.index}>
          <h3>Gadgets</h3>
         <img class="card-img-top" src={gadget.image} alt="Card image cap" />
         <div class="card-body">
