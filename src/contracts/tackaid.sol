@@ -48,12 +48,8 @@ contract TechGadget {
         _;
     }
 
-    modifier checkIfValidPrice(uint _price) {
-        require(_price > 0, "invalid price");
-        _;
-    }
-    modifier checkIfValidAmount(uint _amount) {
-        require(_amount > 0, "invalid amount");
+    modifier checkIfValidInput(uint _input) {
+        require(_input > 0, "invalid input");
         _;
     }
 
@@ -67,7 +63,7 @@ contract TechGadget {
         string calldata _description,
         uint _price,
         uint _noOfAvailable
-    ) public checkIfValidPrice(_price) checkIfValidAmount(_noOfAvailable) {
+    ) public checkIfValidInput(_price) checkIfValidInput(_noOfAvailable) {
         require(bytes(_image).length > 0, "Empty image");
         require(bytes(_description).length > 0, "Empty description");
         uint _sold = 0;
@@ -101,7 +97,7 @@ contract TechGadget {
     function addInventory(uint _index, uint _amount)
         public
         checkIfGadgetOwner(_index)
-        checkIfValidAmount(_amount)
+        checkIfValidInput(_amount)
     {
         Gadget storage currentGadget = gadgets[_index];
         uint newNoOfAvailable = currentGadget.noOfAvailable + _amount;
@@ -133,7 +129,7 @@ contract TechGadget {
     function modifyPrice(uint _index, uint _newPrice)
         external
         checkIfGadgetOwner(_index)
-        checkIfValidPrice(_newPrice)
+        checkIfValidInput(_newPrice)
     {
         gadgets[_index].price = _newPrice;
     }
@@ -165,20 +161,20 @@ contract TechGadget {
      * @dev allow users to buy a gadget from the platform
      * @notice Reverts if gadget is out of inventory(out of stock)
      */
-    function buyGadget(uint _index) public payable {
+    function buyGadget(uint _index, uint _quantity) public payable checkIfValidInput(_quantity){
         Gadget storage currentGadget = gadgets[_index];
-        require(currentGadget.noOfAvailable > 0, "Sold out");
+        require(currentGadget.noOfAvailable > _quantity, "Stocks unavailable");
         require(
             currentGadget.owner != msg.sender,
             "You can't buy your own gadgets"
         );
-        currentGadget.sold++;
-        currentGadget.noOfAvailable--;
+        currentGadget.sold+= _quantity;
+        currentGadget.noOfAvailable-= _quantity;
         require(
             IERC20Token(cUsdTokenAddress).transferFrom(
                 msg.sender,
                 currentGadget.owner,
-                currentGadget.price
+                currentGadget.price * _quantity
             ),
             "Transfer failed."
         );
